@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, initial-scale=1.0">
+<title>TV Input Debug</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f1318;
+  color: #66ffaa;
+  font-family: 'Courier New', monospace;
+  padding: 24px;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+h1 { font-size: 28px; margin-bottom: 4px; }
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.header-right { font-size: 14px; color: #5a6a78; }
+.header-right .val { color: #ffaa33; }
+.clear-btn {
+  background: none; border: none; color: #dd4444;
+  font-family: inherit; font-size: 14px; cursor: pointer;
+  text-decoration: underline;
+}
+.card {
+  border: 1px solid #1a4a35;
+  background: #141a20;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card-label {
+  font-size: 11px;
+  color: #5a6a78;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.big-key {
+  font-size: 48px;
+  font-weight: bold;
+  color: #66ffaa;
+  display: inline-block;
+  margin-right: 24px;
+}
+.tag-label { color: #5a6a78; }
+.tag-value { color: #e0e0e0; font-weight: bold; }
+.modifier { color: #ffaa33; margin-left: 12px; font-size: 18px; }
+.tags { display: inline; font-size: 18px; }
+.placeholder { font-size: 22px; color: #5a6a78; }
+.log-box {
+  border: 1px solid #1a4a35;
+  background: #141a20;
+  border-radius: 8px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.log-header {
+  font-size: 11px;
+  color: #5a6a78;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #1a4a35;
+}
+.log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.log-row {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.8;
+  font-family: 'Courier New', monospace;
+}
+.log-ts { color: #5a6a78; width: 110px; flex-shrink: 0; }
+.log-action { width: 90px; flex-shrink: 0; font-weight: bold; text-transform: uppercase; }
+.log-action.key { color: #66ffaa; }
+.log-action.mouse { color: #ffaa33; }
+.log-action.wheel { color: #dd4444; }
+.log-detail-key { color: #5a6a78; }
+.log-detail-val { color: #e0e0e0; }
+.empty { color: #5a6a78; text-align: center; padding: 48px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⌨ TV Input Debug Tool</h1>
+  <div class="header-right">
+    Mouse: <span class="val" id="mousePos">0, 0</span>
+    &nbsp;&nbsp;Buttons: <span class="val" id="mouseBtn">0</span>
+    &nbsp;&nbsp;<button class="clear-btn" onclick="clearLog()">Clear Log</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-label">Last Key Pressed</div>
+  <div id="lastKey"><span class="placeholder">Press any key on remote, keyboard, or click mouse…</span></div>
+</div>
+
+<div class="log-box">
+  <div class="log-header">Event Log (<span id="logCount">0</span>)</div>
+  <div class="log-list" id="logList">
+    <div class="empty" id="emptyMsg">Waiting for input events…</div>
+  </div>
+</div>
+
+<script>
+var events = [];
+var MAX = 80;
+
+function ts() {
+  var d = new Date();
+  var h = String(d.getHours()).padStart(2, '0');
+  var m = String(d.getMinutes()).padStart(2, '0');
+  var s = String(d.getSeconds()).padStart(2, '0');
+  var ms = String(d.getMilliseconds()).padStart(3, '0');
+  return h + ':' + m + ':' + s + '.' + ms;
+}
+
+function addEvent(type, action, details) {
+  events.unshift({ type: type, action: action, details: details, time: ts() });
+  if (events.length > MAX) events.length = MAX;
+  renderLog();
+}
+
+function renderLog() {
+  var list = document.getElementById('logList');
+  var html = '';
+  for (var i = 0; i < events.length; i++) {
+    var e = events[i];
+    html += '<div class="log-row"><span class="log-ts">' + e.time + '</span>';
+    html += '<span class="log-action ' + e.type + '">' + e.action + '</span><span>';
+    var keys = Object.keys(e.details);
+    for (var j = 0; j < keys.length; j++) {
+      html += '<span class="log-detail-key">' + keys[j] + '=</span>';
+      html += '<span class="log-detail-val">' + e.details[keys[j]] + '</span> ';
+    }
+    html += '</span></div>';
+  }
+  if (events.length === 0) {
+    html = '<div class="empty">Waiting for input events…</div>';
+  }
+  list.innerHTML = html;
+  document.getElementById('logCount').textContent = events.length;
+}
+
+function updateLastKey(e) {
+  var mods = '';
+  if (e.ctrlKey) mods += '<span class="modifier">CTRL</span>';
+  if (e.altKey) mods += '<span class="modifier">ALT</span>';
+  if (e.shiftKey) mods += '<span class="modifier">SHIFT</span>';
+  if (e.metaKey) mods += '<span class="modifier">META</span>';
+  document.getElementById('lastKey').innerHTML =
+    '<span class="big-key">' + escapeHtml(e.key) + '</span>' +
+    '<span class="tags">' +
+    '<span class="tag-label">code: </span><span class="tag-value">' + e.code + '</span> &nbsp; ' +
+    '<span class="tag-label">keyCode: </span><span class="tag-value">' + e.keyCode + '</span> &nbsp; ' +
+    '<span class="tag-label">which: </span><span class="tag-value">' + e.which + '</span>' +
+    mods + '</span>';
+}
+
+function escapeHtml(s) {
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+function clearLog() {
+  events = [];
+  renderLog();
+}
+
+document.addEventListener('keydown', function(e) {
+  e.preventDefault();
+  updateLastKey(e);
+  addEvent('key', 'keydown', {
+    key: e.key, code: e.code, keyCode: e.keyCode, which: e.which,
+    repeat: e.repeat, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey
+  });
+});
+
+document.addEventListener('keyup', function(e) {
+  e.preventDefault();
+  addEvent('key', 'keyup', {
+    key: e.key, code: e.code, keyCode: e.keyCode, which: e.which
+  });
+});
+
+document.addEventListener('mousedown', function(e) {
+  addEvent('mouse', 'mousedown', { button: e.button, buttons: e.buttons, x: e.clientX, y: e.clientY });
+});
+
+document.addEventListener('mouseup', function(e) {
+  addEvent('mouse', 'mouseup', { button: e.button, buttons: e.buttons, x: e.clientX, y: e.clientY });
+});
+
+document.addEventListener('mousemove', function(e) {
+  document.getElementById('mousePos').textContent = e.clientX + ', ' + e.clientY;
+  document.getElementById('mouseBtn').textContent = e.buttons;
+});
+
+document.addEventListener('click', function(e) {
+  addEvent('mouse', 'click', { button: e.button, x: e.clientX, y: e.clientY });
+});
+
+document.addEventListener('dblclick', function(e) {
+  addEvent('mouse', 'dblclick', { button: e.button, x: e.clientX, y: e.clientY });
+});
+
+document.addEventListener('wheel', function(e) {
+  addEvent('wheel', 'wheel', { deltaX: Math.round(e.deltaX), deltaY: Math.round(e.deltaY) });
+});
+
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+</script>
+</body>
+</html>
